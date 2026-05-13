@@ -1,4 +1,4 @@
-import { Component, DestroyRef, OnInit, inject, signal } from '@angular/core';
+﻿import { Component, DestroyRef, OnInit, inject, signal } from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
@@ -21,7 +21,7 @@ import { formatCurrency } from '../../core/utils/format';
     <div class="space-y-4">
       <div class="flex flex-wrap items-center justify-between gap-2">
         <h1 class="text-xl font-semibold text-gray-800">Pedidos</h1>
-        <button class="btn-movtech" routerLink="/pedidos/novo">
+        <button class="btn-primary" routerLink="/pedidos/novo">
           <i class="pi pi-plus mr-1 text-xs"></i> Adicionar
         </button>
       </div>
@@ -47,7 +47,7 @@ import { formatCurrency } from '../../core/utils/format';
             <input pInputText type="date" [ngModel]="filters.to" (ngModelChange)="onDateChange('to', $event)" />
           </div>
           <div class="col-span-12 md:col-span-3 flex gap-2">
-            <button class="btn-movtech flex-1 justify-center" (click)="onFilterApply()">
+            <button class="btn-primary flex-1 justify-center" (click)="onFilterApply()">
               <i class="pi pi-search mr-1 text-xs"></i> Consultar
             </button>
             <button class="btn-secondary shrink-0" (click)="clearFilters()" title="Limpar filtros">
@@ -65,7 +65,7 @@ import { formatCurrency } from '../../core/utils/format';
             }
           </span>
           <span class="text-gray-700">
-            Total: <strong class="text-movtech-primary text-sm">{{ formatCurrency(totalSum()) }}</strong>
+            Total: <strong class="text-brand-primary text-sm">{{ formatCurrency(totalSum()) }}</strong>
           </span>
         </div>
 

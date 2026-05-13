@@ -1,4 +1,4 @@
-import { Component, ElementRef, Input, OnInit, ViewChild, inject, signal } from '@angular/core';
+﻿import { Component, ElementRef, Input, OnInit, ViewChild, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
@@ -148,7 +148,7 @@ import { CreateCustomerPayload } from '../../core/models/customer.model';
                       sticky bottom-0 z-10 shadow-[0_-2px_8px_rgba(0,0,0,0.06)]
                       md:static md:shadow-none">
             <button type="button" class="btn-secondary" routerLink="/clientes">Cancelar</button>
-            <button type="submit" class="btn-movtech" [disabled]="saving()">
+            <button type="submit" class="btn-primary" [disabled]="saving()">
               @if (saving()) {
                 <i class="pi pi-spin pi-spinner mr-1"></i>
               } @else {

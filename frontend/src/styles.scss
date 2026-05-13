@@ -1,4 +1,4 @@
-@tailwind base;
+﻿@tailwind base;
 @tailwind components;
 @tailwind utilities;
 
@@ -11,7 +11,7 @@ html, body {
   color: #212529;
 }
 
-// ===== PrimeNG DataTable — denso estilo Movtech =====
+// ===== PrimeNG DataTable — denso estilo Sistema =====
 .p-datatable {
   font-size: 0.85rem;
 }
@@ -178,8 +178,8 @@ body .p-dropdown.cell-dropdown.ng-invalid.ng-touched .p-dropdown-label.p-placeho
   font-size: 0.85rem;
 }
 
-.btn-movtech {
-  @apply bg-movtech-primary hover:bg-movtech-primary-light text-white px-4 py-2 rounded text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center;
+.btn-primary {
+  @apply bg-brand-primary hover:bg-brand-primary-light text-white px-4 py-2 rounded text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center;
 }
 
 .btn-secondary {

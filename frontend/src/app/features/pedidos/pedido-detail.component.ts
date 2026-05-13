@@ -1,4 +1,4 @@
-import { Component, Input, OnInit, inject, signal } from '@angular/core';
+﻿import { Component, Input, OnInit, inject, signal } from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
 import { Router, RouterLink } from '@angular/router';
 import { TableModule } from 'primeng/table';
@@ -21,7 +21,7 @@ import { formatCurrency } from '../../core/utils/format';
             <i class="pi pi-arrow-left mr-1 text-xs"></i> Voltar
           </button>
           @if (order(); as o) {
-            <button class="btn-movtech disabled:opacity-50"
+            <button class="btn-primary disabled:opacity-50"
                     [disabled]="!o.canBeModified"
                     (click)="edit(o)"
                     [title]="o.canBeModified ? 'Editar' : 'Pedido bloqueado: passou de 24h da criação'">
@@ -90,7 +90,7 @@ import { formatCurrency } from '../../core/utils/format';
             <div class="border-t mt-4 pt-3 flex justify-end">
               <div class="text-right">
                 <div class="text-xs text-gray-500">Total do pedido</div>
-                <div class="text-2xl font-semibold text-movtech-primary">{{ formatCurrency(o.totalValue) }}</div>
+                <div class="text-2xl font-semibold text-brand-primary">{{ formatCurrency(o.totalValue) }}</div>
               </div>
             </div>
           </div>

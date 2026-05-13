@@ -1,4 +1,4 @@
-import { Component, Input, OnInit, computed, inject, signal } from '@angular/core';
+﻿import { Component, Input, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormArray, FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
@@ -130,7 +130,7 @@ import { formatCurrency } from '../../core/utils/format';
                   <div class="text-xs text-gray-500">{{ items.length }} item(ns)</div>
                   <div class="text-right">
                     <div class="text-xs text-gray-500">Total do pedido</div>
-                    <div class="text-2xl font-semibold text-movtech-primary tabular-nums">{{ formatCurrency(total()) }}</div>
+                    <div class="text-2xl font-semibold text-brand-primary tabular-nums">{{ formatCurrency(total()) }}</div>
                   </div>
                 </div>
               }
@@ -146,7 +146,7 @@ import { formatCurrency } from '../../core/utils/format';
                       sticky bottom-0 z-10 shadow-[0_-2px_8px_rgba(0,0,0,0.06)]
                       md:static md:shadow-none">
             <button type="button" class="btn-secondary" routerLink="/pedidos">Cancelar</button>
-            <button type="submit" class="btn-movtech" [disabled]="saving() || items.length === 0">
+            <button type="submit" class="btn-primary" [disabled]="saving() || items.length === 0">
               @if (saving()) {
                 <i class="pi pi-spin pi-spinner mr-1"></i>
               } @else {
@@ -228,14 +228,14 @@ import { formatCurrency } from '../../core/utils/format';
           }
           <div class="flex items-center justify-between mt-2 pt-2 border-t border-gray-200">
             <span class="text-xs text-gray-500">Subtotal</span>
-            <span class="text-lg font-semibold text-movtech-primary tabular-nums">{{ formatCurrency(dialogSubtotal()) }}</span>
+            <span class="text-lg font-semibold text-brand-primary tabular-nums">{{ formatCurrency(dialogSubtotal()) }}</span>
           </div>
         </div>
       </form>
 
       <ng-template pTemplate="footer">
         <button type="button" class="btn-secondary" (click)="closeItemDialog()">Cancelar</button>
-        <button type="button" class="btn-movtech" (click)="confirmItem()">
+        <button type="button" class="btn-primary" (click)="confirmItem()">
           <i class="pi pi-check mr-1 text-xs"></i>
           {{ editingItemIndex() !== null ? 'Atualizar' : 'Adicionar' }}
         </button>

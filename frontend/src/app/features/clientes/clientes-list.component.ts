@@ -1,4 +1,4 @@
-import { Component, DestroyRef, inject, OnInit, signal } from '@angular/core';
+﻿import { Component, DestroyRef, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
@@ -21,7 +21,7 @@ import { formatCpf } from '../../core/utils/format';
     <div class="space-y-4">
       <div class="flex flex-wrap items-center justify-between gap-2">
         <h1 class="text-xl font-semibold text-gray-800">Clientes</h1>
-        <button class="btn-movtech" routerLink="/clientes/novo">
+        <button class="btn-primary" routerLink="/clientes/novo">
           <i class="pi pi-plus mr-1 text-xs"></i> Adicionar
         </button>
       </div>

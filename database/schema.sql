@@ -1,5 +1,5 @@
--- =====================================================================
--- Desafio Movtech — Script de criação do banco de dados
+﻿-- =====================================================================
+-- Desafio Tecnico — Script de criação do banco de dados
 -- Banco: PostgreSQL 15+
 -- Aplicação: API .NET 8 (DesafioMt) + Frontend Angular
 -- =====================================================================

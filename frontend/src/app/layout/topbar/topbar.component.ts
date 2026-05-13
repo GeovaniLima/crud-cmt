@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+﻿import { Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { LayoutService } from '../../core/services/layout.service';
 
@@ -7,11 +7,11 @@ import { LayoutService } from '../../core/services/layout.service';
   standalone: true,
   imports: [CommonModule],
   template: `
-    <header class="h-12 bg-movtech-sidebar-dark text-white flex items-center shadow-sm">
+    <header class="h-12 bg-brand-sidebar-dark text-white flex items-center shadow-sm">
       <!-- Brand alinhado a coluna do sidebar - somente desktop -->
-      <div class="hidden md:flex w-64 h-full bg-movtech-sidebar items-center px-4 gap-2 border-r border-movtech-sidebar-light/40 shrink-0">
+      <div class="hidden md:flex w-64 h-full bg-brand-sidebar items-center px-4 gap-2 border-r border-brand-sidebar-light/40 shrink-0">
         <i class="pi pi-th-large text-blue-300 text-sm"></i>
-        <span class="font-semibold text-sm tracking-wide">Movtech</span>
+        <span class="font-semibold text-sm tracking-wide">Sistema</span>
       </div>
 
       <!-- Hamburger - somente mobile/tablet -->
@@ -24,7 +24,7 @@ import { LayoutService } from '../../core/services/layout.service';
       <!-- Brand condensado mobile/tablet -->
       <div class="md:hidden flex items-center gap-2 px-2">
         <i class="pi pi-th-large text-blue-300 text-sm"></i>
-        <span class="font-semibold text-sm tracking-wide">Movtech</span>
+        <span class="font-semibold text-sm tracking-wide">Sistema</span>
       </div>
 
       <div class="flex-1"></div>

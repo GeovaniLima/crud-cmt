@@ -1,4 +1,4 @@
-import { Component, Input, OnInit, inject, signal } from '@angular/core';
+﻿import { Component, Input, OnInit, inject, signal } from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
 import { Router, RouterLink } from '@angular/router';
 import { forkJoin } from 'rxjs';
@@ -24,7 +24,7 @@ import { formatCpf, formatCurrency } from '../../core/utils/format';
             <i class="pi pi-arrow-left mr-1 text-xs"></i> Voltar
           </button>
           @if (customer(); as c) {
-            <button class="btn-movtech" (click)="edit(c)">
+            <button class="btn-primary" (click)="edit(c)">
               <i class="pi pi-pencil mr-1 text-xs"></i> Editar
             </button>
           }
@@ -82,7 +82,7 @@ import { formatCpf, formatCurrency } from '../../core/utils/format';
               <div class="text-sm text-gray-700">{{ c.address.city }}/{{ c.address.state }} — CEP {{ c.address.zipCode }}</div>
             </div>
 
-            <div class="bg-gradient-to-br from-movtech-primary to-movtech-primary-light rounded shadow-sm p-5 text-white">
+            <div class="bg-gradient-to-br from-brand-primary to-brand-primary-light rounded shadow-sm p-5 text-white">
               <div class="flex items-center gap-2 text-xs uppercase tracking-wider opacity-80">
                 <i class="pi pi-wallet"></i> Total gasto em pedidos
               </div>

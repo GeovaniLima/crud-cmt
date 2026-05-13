@@ -4,7 +4,7 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        movtech: {
+        brand: {
           'sidebar': '#0f1e36',
           'sidebar-dark': '#0a1729',
           'sidebar-light': '#1e2d3f',

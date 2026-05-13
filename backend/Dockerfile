@@ -1,5 +1,5 @@
-# =====================================================================
-# Backend Desafio Movtech — Dockerfile multi-stage
+﻿# =====================================================================
+# Backend Desafio Tecnico — Dockerfile multi-stage
 # =====================================================================
 # Build: dotnet publish -> Runtime: aspnet 8.0 slim
 # Porta padrão: 8080 (Render setará via PORT env var, mas 8080 fixo serve)

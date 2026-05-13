@@ -1,4 +1,4 @@
-using System.Text.RegularExpressions;
+﻿using System.Text.RegularExpressions;
 using DesafioMt.Api.Middleware;
 using DesafioMt.Application;
 using DesafioMt.Infrastructure;
@@ -49,7 +49,7 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
-    c.SwaggerDoc("v1", new() { Title = "Desafio Movtech API", Version = "v1" });
+    c.SwaggerDoc("v1", new() { Title = "Desafio Tecnico API", Version = "v1" });
 });
 
 builder.Services.AddApplication();
@@ -63,7 +63,7 @@ app.UseSerilogRequestLogging();
 app.UseSwagger();
 app.UseSwaggerUI(c =>
 {
-    c.SwaggerEndpoint("/swagger/v1/swagger.json", "Desafio Movtech API v1");
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "Desafio Tecnico API v1");
     c.RoutePrefix = "swagger";
 });
 
