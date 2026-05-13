@@ -1,4 +1,4 @@
-# Desafio Movtech — Gestão de Clientes e Pedidos
+#Gestão de Clientes e Pedidos
 
 Aplicação fullstack para gerenciar **clientes** e **pedidos**, com validações de negócio, regras de domínio (CPF válido, idade mínima de 18 anos, pedido com pelo menos um item, total recalculado pelo servidor, edição bloqueada após 24 horas da criação) e catálogo de produtos.
 
