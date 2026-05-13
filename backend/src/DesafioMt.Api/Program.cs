@@ -75,6 +75,29 @@ app.UseExceptionHandling();
 app.UseAuthorization();
 app.MapControllers();
 
+// Warmup eager da conexao DB no startup. Sem isso, a primeira request que toca
+// o banco paga ~10s de setup (TLS + auth do pooler do Supabase) - ja flagrado
+// em log de producao. Combinado com Min Pool Size=1 + Connection Lifetime=0
+// na connection string, esta conexao fica permanente no pool, e nenhuma request
+// real do usuario paga esse custo.
+//
+// Erro aqui nao impede o app de subir (log warning e segue). A primeira request
+// real reabriria a conexao naturalmente.
+try
+{
+    var sw = System.Diagnostics.Stopwatch.StartNew();
+    using var scope = app.Services.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    await db.Database.OpenConnectionAsync();
+    await db.Database.CloseConnectionAsync();
+    sw.Stop();
+    Log.Information("DB warmup concluido em {Ms} ms", sw.ElapsedMilliseconds);
+}
+catch (Exception ex)
+{
+    Log.Warning(ex, "DB warmup falhou - sera tentado de novo na primeira request");
+}
+
 app.MapGet("/health", () => Results.Ok(new { status = "ok", timestamp = DateTime.UtcNow }));
 
 // Ping de banco - util para confirmar conectividade pos-deploy no Render
