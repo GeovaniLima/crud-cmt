@@ -95,46 +95,36 @@ public class OrderRepository : IOrderRepository
             && pgEx.SqlState == "23503"
             && pgEx.ConstraintName == constraintName;
 
-    // Atualizar Order com troca completa de itens nao funciona com o ChangeTracker padrao
-    // do EF Core: ele compara colecoes por identidade, e como o dominio reconstroi novos
-    // OrderItem (com novos Guids) a cada Update, o tracker tenta inserir os novos sem
-    // remover os antigos - resultado: duplicacao.
+    // Atualizar Order com troca completa de itens: o GetByIdAsync (passo anterior
+    // na service) trouxe Order + Items tracked. O Order.Update() do dominio mutou
+    // as propriedades do Order e SUBSTITUIU a colecao _items por uma nova - os
+    // antigos viraram orfaos no tracker (nao estao mais na navegacao, mas ainda
+    // sao trackeados como Unchanged).
     //
-    // Solucao explicita em tres passos, agora envolvidos em UMA transacao para garantir
-    // atomicidade (sem ela, ExecuteDeleteAsync e SaveChangesAsync rodavam cada um em
-    // sua propria transacao - se a segunda falhasse, os itens antigos ficavam apagados
-    // sem os novos terem entrado, corrompendo o pedido):
-    //   1. Detach de tudo o que o GetByIdAsync trouxe (a chamada anterior do service).
-    //   2. ExecuteDeleteAsync apaga todos os itens antigos via SQL direto.
-    //   3. Reanexa o Order modificado e adiciona os novos itens como Added.
-    //
-    // O ExecutionStrategy wrapper e necessario porque EnableRetryOnFailure proibe
-    // transacoes iniciadas manualmente fora dele (lanca InvalidOperationException).
+    // Estrategia: marcar os orfaos como Deleted e os novos como Added, deixando
+    // o EF gerar DELETEs + UPDATE + INSERTs em UM unico SaveChanges (transacao
+    // implicita). Custo: 1 round-trip cross-continent em vez de 2 que eram
+    // anteriores (ExecuteDeleteAsync + SaveChangesAsync). Critico cross-region:
+    // cada RT custa ~180ms SP<->Oregon.
     public async Task UpdateAsync(Order order, CancellationToken ct = default)
     {
-        var strategy = _context.Database.CreateExecutionStrategy();
-        await strategy.ExecuteAsync(async () =>
+        var orphans = _context.ChangeTracker.Entries<OrderItem>()
+            .Where(e => e.Entity.OrderId == order.Id && e.State == EntityState.Unchanged)
+            .Select(e => e.Entity)
+            .ToList();
+
+        foreach (var orphan in orphans)
+            _context.OrderItems.Remove(orphan);
+
+        foreach (var item in order.Items)
         {
-            // Limpa o tracker a cada tentativa: em caso de retry, o estado anterior
-            // (order Attached, items Added) ficaria sujo e geraria duplicacao.
-            foreach (var entry in _context.ChangeTracker.Entries().ToList())
-                entry.State = EntityState.Detached;
-
-            await using var tx = await _context.Database.BeginTransactionAsync(ct);
-
-            await _context.OrderItems
-                .Where(i => i.OrderId == order.Id)
-                .ExecuteDeleteAsync(ct);
-
-            _context.Orders.Attach(order);
-            _context.Entry(order).State = EntityState.Modified;
-
-            foreach (var item in order.Items)
+            // Os itens novos (Guids novos do BuildItemsForUpdate) nao estao tracked.
+            // Se DetectChanges ja marcou como Added via navegacao, Add e idempotente.
+            if (_context.Entry(item).State == EntityState.Detached)
                 _context.OrderItems.Add(item);
+        }
 
-            await _context.SaveChangesAsync(ct);
-            await tx.CommitAsync(ct);
-        });
+        await _context.SaveChangesAsync(ct);
     }
 
     public Task<decimal> GetTotalSpentByCustomerAsync(Guid customerId, CancellationToken ct = default) =>

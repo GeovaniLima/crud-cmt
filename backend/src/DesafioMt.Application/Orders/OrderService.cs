@@ -64,13 +64,33 @@ public class OrderService : IOrderService
         var order = await _orders.GetByIdAsync(id, ct)
             ?? throw new DomainNotFoundException("Pedido não encontrado.");
 
-        var newItems = await BuildItemsAsync(dto.Items, ct);
+        // Otimizacao para PUT cross-continent: NAO fazemos lookup de produtos
+        // (como no POST). Confiamos no payload do cliente para nome/preco/quantidade.
+        // A FK order_items.product_id -> produtos garante existencia no banco;
+        // se o id for invalido, o INSERT falha com 23503 (ja tratado em outros
+        // caminhos). Reduz uma round-trip de ~180ms - critico no cenario em que
+        // o cliente cancela a request por timeout interno.
+        var newItems = BuildItemsForUpdate(dto.Items);
         order.Update(dto.OrderDate, newItems);
 
         await _orders.UpdateAsync(order, ct);
 
         // Sem re-fetch: usuario sera navegado para a lista, onde a busca refresca.
         return MapToDto(order);
+    }
+
+    // Variante "rapida" do BuildItemsAsync, sem round-trip ao catalogo. Usada
+    // exclusivamente pelo PUT, onde priorizamos latencia sobre o snapshot de
+    // nome/preco vindo do servidor.
+    private static List<OrderItem> BuildItemsForUpdate(List<CreateOrderItemDto> itemsDto)
+    {
+        var result = new List<OrderItem>(itemsDto.Count);
+        foreach (var dto in itemsDto)
+        {
+            var sold = dto.SoldPrice > 0 ? dto.SoldPrice : dto.UnitPrice;
+            result.Add(new OrderItem(dto.ProductId, dto.ProductName, dto.Quantity, dto.UnitPrice, sold));
+        }
+        return result;
     }
 
     public async Task<OrderDto?> GetByIdAsync(Guid id, CancellationToken ct = default)
