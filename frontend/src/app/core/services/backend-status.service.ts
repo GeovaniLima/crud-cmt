@@ -62,10 +62,12 @@ export class BackendStatusService {
 
   private tryOnce(startTime: number): void {
     const headers = new HttpHeaders({ 'X-No-Retry': 'true' });
-    // Usamos /health/db (nao /health) para que o probe acorde o app E ja teste
-    // a conexao com o banco. Sem isso o primeiro POST real do usuario pegaria
-    // o banco frio e poderia cair por timeout.
-    this.http.get(`${environment.apiUrl}/health/db`, { headers, responseType: 'text' as 'json' })
+    // Probe atinge um endpoint REAL da API (nao /health) para confirmar que
+    // o stack completo esta pronto: ASP.NET, EF Core compilado, conexao DB,
+    // query plan, serializacao JSON. Se /health passar mas /api/customers
+    // ainda nao estiver pronto, o overlay sumiria precocemente e o usuario
+    // veria erro logo de cara.
+    this.http.get(`${environment.apiUrl}/api/customers?pageSize=1`, { headers })
       .subscribe({
         next: () => this.status.set('ready'),
         error: () => {
