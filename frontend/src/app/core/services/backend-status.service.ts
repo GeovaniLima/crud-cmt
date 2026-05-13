@@ -31,7 +31,10 @@ export class BackendStatusService {
 
   private tryOnce(startTime: number): void {
     const headers = new HttpHeaders({ 'X-No-Retry': 'true' });
-    this.http.get(`${environment.apiUrl}/health`, { headers, responseType: 'text' as 'json' })
+    // Usamos /health/db (nao /health) para que o probe acorde o app E ja teste
+    // a conexao com o banco. Sem isso o primeiro POST real do usuario pegaria
+    // o banco frio e poderia cair por timeout.
+    this.http.get(`${environment.apiUrl}/health/db`, { headers, responseType: 'text' as 'json' })
       .subscribe({
         next: () => this.status.set('ready'),
         error: () => {
