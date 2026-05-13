@@ -20,6 +20,17 @@ export const retryInterceptor: HttpInterceptorFn = (req, next) => {
   if (req.headers.has('X-No-Retry')) {
     return next(req);
   }
+
+  // Importante: so retentamos metodos idempotentes. Retentar POST/PUT/DELETE
+  // pode criar duplicatas ou disparar 409s falsos quando a primeira tentativa
+  // chegou no servidor mas a resposta perdeu na rede (cenario classico de
+  // cold start: cria o recurso, conexao cai antes do 201 chegar, retry recebe
+  // 409 mesmo o create tendo sido feito).
+  const idempotent = req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS';
+  if (!idempotent) {
+    return next(req);
+  }
+
   return next(req).pipe(
     retry({
       count: 3,
