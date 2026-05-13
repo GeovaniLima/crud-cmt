@@ -1,7 +1,9 @@
 using DesafioMt.Application.Common.Abstractions;
+using DesafioMt.Domain.Common;
 using DesafioMt.Domain.Entities;
 using DesafioMt.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace DesafioMt.Infrastructure.Repositories;
 
@@ -46,13 +48,54 @@ public class CustomerRepository : ICustomerRepository
     public async Task AddAsync(Customer customer, CancellationToken ct = default)
     {
         await _context.Customers.AddAsync(customer, ct);
-        await _context.SaveChangesAsync(ct);
+        try
+        {
+            await _context.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException ex) when (TryGetUniqueViolation(ex, out var constraint))
+        {
+            throw new DomainConflictException(MessageForConstraint(constraint));
+        }
     }
 
     public async Task UpdateAsync(Customer customer, CancellationToken ct = default)
     {
         _context.Customers.Update(customer);
-        await _context.SaveChangesAsync(ct);
+        try
+        {
+            await _context.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException ex) when (TryGetUniqueViolation(ex, out var constraint))
+        {
+            throw new DomainConflictException(MessageForConstraint(constraint, isUpdate: true));
+        }
+    }
+
+    // Postgres devolve SqlState "23505" em violacoes de UNIQUE; o ConstraintName
+    // identifica QUAL constraint (CPF ou e-mail). Trocamos pelo DomainConflictException
+    // que o middleware converte em HTTP 409. Isso elimina os pre-checks por SELECT,
+    // economizando 2 round-trips de banco em cada criacao/atualizacao - critico em
+    // latencia cross-region (Render Oregon <-> Supabase sa-east-1).
+    private static bool TryGetUniqueViolation(DbUpdateException ex, out string constraintName)
+    {
+        constraintName = string.Empty;
+        if (ex.InnerException is PostgresException pgEx && pgEx.SqlState == "23505")
+        {
+            constraintName = pgEx.ConstraintName ?? string.Empty;
+            return true;
+        }
+        return false;
+    }
+
+    private static string MessageForConstraint(string constraintName, bool isUpdate = false)
+    {
+        var qualifier = isUpdate ? "outro " : "um ";
+        return constraintName switch
+        {
+            "customers_cpf_unique" => $"Já existe {qualifier}cliente com este CPF.",
+            "customers_email_unique" => $"Já existe {qualifier}cliente com este e-mail.",
+            _ => "Já existe registro com um dos campos únicos."
+        };
     }
 
     public async Task DeleteAsync(Customer customer, CancellationToken ct = default)

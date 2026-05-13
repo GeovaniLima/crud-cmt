@@ -45,17 +45,13 @@ public class CustomerService : ICustomerService
 
         var cpf = new Cpf(dto.Cpf);
         var address = MapAddress(dto.Address);
-
-        // Checagem amigavel de unicidade: retorna 409 com mensagem clara.
-        // A constraint UNIQUE no banco e a rede de seguranca - se duas requisicoes
-        // chegarem em paralelo e ambas passarem no AnyAsync, a segunda quebra no SaveChanges
-        // e cai no handler generico.
-        if (await _repository.CpfExistsAsync(cpf.Value, null, ct))
-            throw new DomainConflictException("Já existe um cliente com este CPF.");
-        if (await _repository.EmailExistsAsync(dto.Email, null, ct))
-            throw new DomainConflictException("Já existe um cliente com este e-mail.");
-
         var customer = new Customer(dto.Name, dto.Email, dto.BirthDate, cpf, address);
+
+        // Otimizacao: confiamos na constraint UNIQUE do banco em vez de pre-checar.
+        // Antes faziamos 2 SELECTs (CpfExists, EmailExists) + INSERT = 3 round-trips.
+        // Em latencia cross-region (~180ms por round-trip), isso virava ~540ms.
+        // Agora e 1 round-trip soh; o repository traduz a violacao 23505 em
+        // DomainConflictException com a mensagem certa.
         await _repository.AddAsync(customer, ct);
 
         return MapToDto(customer);
@@ -70,11 +66,6 @@ public class CustomerService : ICustomerService
 
         var cpf = new Cpf(dto.Cpf);
         var address = MapAddress(dto.Address);
-
-        if (await _repository.CpfExistsAsync(cpf.Value, id, ct))
-            throw new DomainConflictException("Já existe outro cliente com este CPF.");
-        if (await _repository.EmailExistsAsync(dto.Email, id, ct))
-            throw new DomainConflictException("Já existe outro cliente com este e-mail.");
 
         customer.Update(dto.Name, dto.Email, dto.BirthDate, cpf, address);
         await _repository.UpdateAsync(customer, ct);
