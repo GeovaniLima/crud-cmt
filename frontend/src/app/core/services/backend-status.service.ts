@@ -41,6 +41,25 @@ export class BackendStatusService {
     this.tryOnce(Date.now());
   }
 
+  /**
+   * Aguarda o backend estar 'ready' antes de prosseguir. Usado pelos forms
+   * antes de POST/PUT - evita que um Save dispare uma mutacao enquanto o
+   * servidor esta hibernado, o que poderia criar duplicatas (conexao cai
+   * apos o servidor processar mas antes da resposta voltar).
+   *
+   * Resolve true assim que o status virar 'ready', ou false depois de ~90s.
+   */
+  async waitForReady(): Promise<boolean> {
+    if (this.status() === 'ready') return true;
+    if (this.status() === 'failed') this.probe();
+    const start = Date.now();
+    while (Date.now() - start < BackendStatusService.MAX_WAIT_MS) {
+      if (this.status() === 'ready') return true;
+      await new Promise(r => setTimeout(r, 200));
+    }
+    return false;
+  }
+
   private tryOnce(startTime: number): void {
     const headers = new HttpHeaders({ 'X-No-Retry': 'true' });
     // Usamos /health/db (nao /health) para que o probe acorde o app E ja teste

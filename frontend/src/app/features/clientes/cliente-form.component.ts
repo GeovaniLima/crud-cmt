@@ -8,6 +8,7 @@ import { ButtonModule } from 'primeng/button';
 import { MessageService } from 'primeng/api';
 import { CustomerService } from '../../core/services/customer.service';
 import { CepService } from '../../core/services/cep.service';
+import { BackendStatusService } from '../../core/services/backend-status.service';
 import { cpfValidator, minAgeValidator } from '../../core/validators/cpf.validator';
 import { formatCpf, formatCurrency } from '../../core/utils/format';
 import { CreateCustomerPayload } from '../../core/models/customer.model';
@@ -170,6 +171,7 @@ export class ClienteFormComponent implements OnInit {
   private readonly fb = inject(FormBuilder);
   private readonly service = inject(CustomerService);
   private readonly cepService = inject(CepService);
+  private readonly backend = inject(BackendStatusService);
   private readonly router = inject(Router);
   private readonly messageService = inject(MessageService);
 
@@ -305,7 +307,7 @@ export class ClienteFormComponent implements OnInit {
     return 'Valor inválido.';
   }
 
-  submit(): void {
+  async submit(): Promise<void> {
     if (this.form.invalid) {
       this.form.markAllAsTouched();
       this.messageService.add({ severity: 'warn', summary: 'Validação', detail: 'Corrija os campos destacados.' });
@@ -313,6 +315,22 @@ export class ClienteFormComponent implements OnInit {
     }
 
     this.saving.set(true);
+
+    // Pre-flight: aguarda o backend confirmar que esta pronto antes de enviar
+    // o POST/PUT. Evita duplicar registros quando o servidor estava hibernando
+    // e a request real cairia no meio do caminho. Se ja esta 'ready', resolve
+    // instantaneo (sem custo perceptivel).
+    const ready = await this.backend.waitForReady();
+    if (!ready) {
+      this.saving.set(false);
+      this.messageService.add({
+        severity: 'error',
+        summary: 'Servidor indisponível',
+        detail: 'Não foi possível conectar ao servidor. Tente novamente em instantes.'
+      });
+      return;
+    }
+
     const v = this.form.getRawValue();
     const payload: CreateCustomerPayload = {
       name: v.name,

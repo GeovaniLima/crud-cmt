@@ -450,6 +450,25 @@ Pontos onde escolhas não-óbvias foram tomadas — explicações curtas:
 
 ---
 
+## Keep-alive para evitar hibernação (free tier)
+
+O Render desliga o serviço gratuito após 15 minutos sem requisições. Para evitar que o avaliador (ou um usuário) pegue um cold start de 30-60 segundos na primeira abertura, configure um ping externo que mantenha o backend acordado.
+
+**Setup com [cron-job.org](https://cron-job.org) (gratuito, ~3 minutos):**
+
+1. Crie uma conta em https://cron-job.org
+2. **Create cronjob** com:
+   - **Title**: `Keep-alive desafiomt`
+   - **URL**: `https://desafiomt-api.onrender.com/health`
+   - **Schedule**: a cada 10 minutos (`*/10 * * * *`)
+3. **Save** e **Enable**
+4. Após o primeiro ciclo, confira no painel que a coluna "Last execution" mostra `200 OK`
+
+Com isso o serviço permanece sempre quente e a aplicação responde instantaneamente. Como salvaguarda, o frontend ainda implementa:
+
+- **Probe automático no boot** que aguarda o `/health/db` responder antes de liberar a UI (mostra overlay)
+- **Pre-flight no submit** de cliente/pedido — antes de POST/PUT, espera o backend confirmar que está pronto. Sem isso, uma requisição em servidor hibernando podia criar registro mas perder a resposta na rede, gerando "409 CPF já existe" no retry
+
 ## Aplicação publicada
 
 - **Frontend**: _(preencher após deploy)_

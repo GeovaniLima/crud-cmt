@@ -13,6 +13,7 @@ import { forkJoin } from 'rxjs';
 import { CustomerService } from '../../core/services/customer.service';
 import { OrderService } from '../../core/services/order.service';
 import { ProductService } from '../../core/services/product.service';
+import { BackendStatusService } from '../../core/services/backend-status.service';
 import { Customer } from '../../core/models/customer.model';
 import { Product } from '../../core/models/product.model';
 import { CreateOrderPayload, UpdateOrderPayload } from '../../core/models/order.model';
@@ -250,6 +251,7 @@ export class PedidoFormComponent implements OnInit {
   private readonly customerService = inject(CustomerService);
   private readonly orderService = inject(OrderService);
   private readonly productService = inject(ProductService);
+  private readonly backend = inject(BackendStatusService);
   private readonly router = inject(Router);
   private readonly messageService = inject(MessageService);
 
@@ -531,7 +533,7 @@ export class PedidoFormComponent implements OnInit {
 
   // ===== Submit =====
 
-  submit(): void {
+  async submit(): Promise<void> {
     if (this.items.length === 0) {
       this.messageService.add({ severity: 'warn', summary: 'Validação', detail: 'Pedido deve conter pelo menos um item.' });
       return;
@@ -544,6 +546,21 @@ export class PedidoFormComponent implements OnInit {
     }
 
     this.saving.set(true);
+
+    // Pre-flight: aguarda o backend estar 'ready' antes de mandar a mutacao.
+    // Evita race condition de criar duplicata quando o servidor estava
+    // hibernando e a conexao caia entre o processamento e a resposta.
+    const ready = await this.backend.waitForReady();
+    if (!ready) {
+      this.saving.set(false);
+      this.messageService.add({
+        severity: 'error',
+        summary: 'Servidor indisponível',
+        detail: 'Não foi possível conectar ao servidor. Tente novamente em instantes.'
+      });
+      return;
+    }
+
     const v = this.form.getRawValue();
     // IDs "custom-*" sao sinteticos (legacy edit) - viram null no payload.
     const itemsPayload = v.items.map((i: any) => ({
