@@ -365,18 +365,10 @@ export class ClienteFormComponent implements OnInit {
       },
       error: e => {
         this.saving.set(false);
-        // status 0 = conexao caiu durante o POST. Como nao retentamos POST por
-        // seguranca (poderia duplicar), avisamos o usuario para checar na lista
-        // antes de tentar de novo. O overlay global tambem reaparece via interceptor.
-        if (e?.status === 0) {
-          this.messageService.add({
-            severity: 'warn',
-            summary: 'Conexão perdida',
-            detail: 'O cadastro pode ter sido salvo. Verifique na lista de clientes antes de tentar novamente.',
-            life: 10000
-          });
-          return;
-        }
+        // status 0 = conexao caiu. O overlay global (BackendStatusService) ja
+        // aparece via retry.interceptor.markDown(). Nao mostramos toast para
+        // nao confundir o usuario - basta apertar Salvar de novo quando voltar.
+        if (e?.status === 0) return;
         const detail = e?.error?.detail ?? 'Erro ao salvar cliente.';
         this.messageService.add({ severity: 'error', summary: 'Erro', detail });
       }

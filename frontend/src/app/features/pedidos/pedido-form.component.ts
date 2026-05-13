@@ -614,17 +614,8 @@ export class PedidoFormComponent implements OnInit {
 
   private onSaveError(err: any): void {
     this.saving.set(false);
-    // status 0 = conexao caiu durante o POST. Como nao retentamos POST por
-    // seguranca (poderia duplicar), avisamos o usuario para checar na lista.
-    if (err?.status === 0) {
-      this.messageService.add({
-        severity: 'warn',
-        summary: 'Conexão perdida',
-        detail: 'O pedido pode ter sido salvo. Verifique na lista de pedidos antes de tentar novamente.',
-        life: 10000
-      });
-      return;
-    }
+    // status 0 = conexao caiu. Overlay global ja comunica - sem toast.
+    if (err?.status === 0) return;
     const detail = err?.error?.detail ?? 'Erro ao salvar pedido.';
     this.messageService.add({ severity: 'error', summary: 'Erro', detail });
   }
