@@ -2,6 +2,7 @@
 import { CommonModule } from '@angular/common';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 import { LayoutService } from '../../core/services/layout.service';
+import { environment } from '../../../environments/environment';
 
 @Component({
   selector: 'app-sidebar',
@@ -51,6 +52,16 @@ import { LayoutService } from '../../core/services/layout.service';
            class="flex items-center gap-3 px-4 py-2 text-gray-300 hover:bg-brand-sidebar-hover border-l-[3px] border-transparent">
           <i class="pi pi-shopping-cart text-xs"></i> Pedidos
         </a>
+
+        <div class="mt-3 px-4 py-1 text-[10px] uppercase text-gray-500 tracking-widest font-medium">Documentação</div>
+        <a [href]="swaggerUrl" target="_blank" rel="noopener"
+           (click)="layout.closeMobileMenu()"
+           class="flex items-center justify-between gap-3 px-4 py-2 text-gray-300 hover:bg-brand-sidebar-hover border-l-[3px] border-transparent">
+          <span class="flex items-center gap-3">
+            <i class="pi pi-code text-xs"></i> API (Swagger)
+          </span>
+          <i class="pi pi-external-link text-[10px] opacity-60"></i>
+        </a>
       </nav>
 
       <div class="p-4 border-t border-brand-sidebar-light/60 text-[11px] text-gray-500">
@@ -61,4 +72,7 @@ import { LayoutService } from '../../core/services/layout.service';
 })
 export class SidebarComponent {
   readonly layout = inject(LayoutService);
+  // URL do Swagger derivada do mesmo apiUrl que o front usa para chamar a API,
+  // entao automaticamente acompanha dev/producao sem ter que duplicar config.
+  readonly swaggerUrl = `${environment.apiUrl}/swagger`;
 }
