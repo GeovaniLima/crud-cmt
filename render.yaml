@@ -1,0 +1,22 @@
+# Render Blueprint — auto-configura o serviço quando conectado ao GitHub.
+# Docs: https://render.com/docs/blueprint-spec
+
+services:
+  - type: web
+    name: desafiomt-api
+    runtime: docker
+    plan: free
+    region: oregon          # Region do Render (não confundir com a do Supabase)
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: ConnectionStrings__DefaultConnection
+        sync: false          # Setado manualmente no dashboard (secret)
+      - key: Cors__AllowedOrigins__0
+        value: https://*.vercel.app
+      - key: Cors__AllowedOrigins__1
+        value: http://localhost:4200
