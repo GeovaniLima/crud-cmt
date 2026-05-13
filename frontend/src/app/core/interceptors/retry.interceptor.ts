@@ -15,6 +15,11 @@ import { retry, throwError, timer } from 'rxjs';
 //   - So retry para erros de "servidor indisponivel"; nunca para 4xx (validacao,
 //     auth, conflito) ou outros erros do app, que sao deterministicos
 export const retryInterceptor: HttpInterceptorFn = (req, next) => {
+  // Bypass para callers que orquestram o proprio retry com feedback de UI
+  // (ex.: BackendStatusService durante o probe de cold start).
+  if (req.headers.has('X-No-Retry')) {
+    return next(req);
+  }
   return next(req).pipe(
     retry({
       count: 3,

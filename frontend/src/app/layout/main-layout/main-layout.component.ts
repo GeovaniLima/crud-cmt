@@ -7,6 +7,7 @@ import { ConfirmDialogModule } from 'primeng/confirmdialog';
 import { SidebarComponent } from '../sidebar/sidebar.component';
 import { TopbarComponent } from '../topbar/topbar.component';
 import { LayoutService } from '../../core/services/layout.service';
+import { BackendStatusService } from '../../core/services/backend-status.service';
 
 @Component({
   selector: 'app-main-layout',
@@ -48,16 +49,54 @@ import { LayoutService } from '../../core/services/layout.service';
                      acceptButtonStyleClass="p-button-danger p-button-sm"
                      rejectButtonStyleClass="p-button-text p-button-sm">
     </p-confirmDialog>
+
+    <!--
+      Overlay de cold start. Bloqueia interacao enquanto o backend nao responde.
+      z-[100] fica acima de tudo (incluindo toast/confirmDialog). Como o overlay
+      cobre toda a viewport com inset-0, cliques ficam contidos no painel central -
+      o resto da UI fica naturalmente inacessivel.
+    -->
+    @if (backend.status() === 'starting') {
+      <div class="fixed inset-0 bg-black/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+        <div class="bg-white rounded-lg shadow-xl p-6 md:p-8 max-w-md text-center">
+          <i class="pi pi-spin pi-spinner text-4xl text-brand-primary mb-4 block"></i>
+          <h2 class="text-lg font-semibold text-gray-800 mb-2">Iniciando o servidor</h2>
+          <p class="text-sm text-gray-600">
+            O backend está em plano gratuito e hiberna após 15 minutos sem uso.
+            Pode levar até <strong>1 minuto</strong> para ficar disponível na primeira abertura.
+            A aplicação será liberada automaticamente assim que estiver pronta.
+          </p>
+        </div>
+      </div>
+    }
+    @if (backend.status() === 'failed') {
+      <div class="fixed inset-0 bg-black/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+        <div class="bg-white rounded-lg shadow-xl p-6 md:p-8 max-w-md text-center">
+          <i class="pi pi-exclamation-triangle text-4xl text-red-600 mb-4 block"></i>
+          <h2 class="text-lg font-semibold text-gray-800 mb-2">Servidor indisponível</h2>
+          <p class="text-sm text-gray-600 mb-4">
+            Não foi possível conectar ao backend após várias tentativas. Verifique sua conexão e tente novamente.
+          </p>
+          <button class="btn-primary" (click)="backend.probe()">
+            <i class="pi pi-refresh mr-2 text-xs"></i> Tentar novamente
+          </button>
+        </div>
+      </div>
+    }
   `
 })
 export class MainLayoutComponent {
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   readonly layout = inject(LayoutService);
+  readonly backend = inject(BackendStatusService);
 
   readonly breadcrumb = signal<string[]>([]);
 
   constructor() {
+    // Dispara o probe assim que o layout monta - antes do usuario interagir.
+    this.backend.probe();
+
     this.updateBreadcrumb();
     this.router.events
       .pipe(filter(e => e instanceof NavigationEnd))
