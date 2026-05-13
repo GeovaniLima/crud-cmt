@@ -100,27 +100,41 @@ public class OrderRepository : IOrderRepository
     // OrderItem (com novos Guids) a cada Update, o tracker tenta inserir os novos sem
     // remover os antigos - resultado: duplicacao.
     //
-    // Solucao explicita em tres passos:
+    // Solucao explicita em tres passos, agora envolvidos em UMA transacao para garantir
+    // atomicidade (sem ela, ExecuteDeleteAsync e SaveChangesAsync rodavam cada um em
+    // sua propria transacao - se a segunda falhasse, os itens antigos ficavam apagados
+    // sem os novos terem entrado, corrompendo o pedido):
     //   1. Detach de tudo o que o GetByIdAsync trouxe (a chamada anterior do service).
     //   2. ExecuteDeleteAsync apaga todos os itens antigos via SQL direto.
     //   3. Reanexa o Order modificado e adiciona os novos itens como Added.
-    // Tudo em um unico SaveChangesAsync para garantir atomicidade na transacao implicita.
+    //
+    // O ExecutionStrategy wrapper e necessario porque EnableRetryOnFailure proibe
+    // transacoes iniciadas manualmente fora dele (lanca InvalidOperationException).
     public async Task UpdateAsync(Order order, CancellationToken ct = default)
     {
-        foreach (var entry in _context.ChangeTracker.Entries().ToList())
-            entry.State = EntityState.Detached;
+        var strategy = _context.Database.CreateExecutionStrategy();
+        await strategy.ExecuteAsync(async () =>
+        {
+            // Limpa o tracker a cada tentativa: em caso de retry, o estado anterior
+            // (order Attached, items Added) ficaria sujo e geraria duplicacao.
+            foreach (var entry in _context.ChangeTracker.Entries().ToList())
+                entry.State = EntityState.Detached;
 
-        await _context.OrderItems
-            .Where(i => i.OrderId == order.Id)
-            .ExecuteDeleteAsync(ct);
+            await using var tx = await _context.Database.BeginTransactionAsync(ct);
 
-        _context.Orders.Attach(order);
-        _context.Entry(order).State = EntityState.Modified;
+            await _context.OrderItems
+                .Where(i => i.OrderId == order.Id)
+                .ExecuteDeleteAsync(ct);
 
-        foreach (var item in order.Items)
-            _context.OrderItems.Add(item);
+            _context.Orders.Attach(order);
+            _context.Entry(order).State = EntityState.Modified;
 
-        await _context.SaveChangesAsync(ct);
+            foreach (var item in order.Items)
+                _context.OrderItems.Add(item);
+
+            await _context.SaveChangesAsync(ct);
+            await tx.CommitAsync(ct);
+        });
     }
 
     public Task<decimal> GetTotalSpentByCustomerAsync(Guid customerId, CancellationToken ct = default) =>
