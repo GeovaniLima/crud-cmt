@@ -1,0 +1,33 @@
+import { HttpErrorResponse, HttpInterceptorFn } from '@angular/common/http';
+import { retry, throwError, timer } from 'rxjs';
+
+// Retenta automaticamente erros de conexao com o backend.
+//
+// Motivacao: o Render free tier hiberna o servico apos 15min de inatividade.
+// O primeiro acesso depois disso acorda o container (cold start), que demora
+// ~30-60s. Durante esse intervalo, requests caem com status 0 (ERR_CONNECTION_CLOSED)
+// ou 502/503/504. Sem retry, o usuario veria erro logo de cara mesmo abrindo
+// a aplicacao corretamente.
+//
+// Estrategia:
+//   - Maximo 4 tentativas (request original + 3 retries)
+//   - Backoff exponencial: 2s, 4s, 8s
+//   - So retry para erros de "servidor indisponivel"; nunca para 4xx (validacao,
+//     auth, conflito) ou outros erros do app, que sao deterministicos
+export const retryInterceptor: HttpInterceptorFn = (req, next) => {
+  return next(req).pipe(
+    retry({
+      count: 3,
+      delay: (error: HttpErrorResponse, retryCount) => {
+        const isConnectionDown = error.status === 0
+          || error.status === 502
+          || error.status === 503
+          || error.status === 504;
+        if (isConnectionDown) {
+          return timer(retryCount * 2000);
+        }
+        return throwError(() => error);
+      }
+    })
+  );
+};
