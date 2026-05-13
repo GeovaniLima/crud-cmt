@@ -27,4 +27,13 @@ public class ProductRepository : IProductRepository
 
     public Task<Product?> GetByIdAsync(Guid id, CancellationToken ct = default) =>
         _context.Products.AsNoTracking().FirstOrDefaultAsync(p => p.Id == id, ct);
+
+    public async Task<IReadOnlyList<Product>> GetByIdsAsync(IEnumerable<Guid> ids, CancellationToken ct = default)
+    {
+        var idSet = ids.ToHashSet();
+        if (idSet.Count == 0) return Array.Empty<Product>();
+        return await _context.Products.AsNoTracking()
+            .Where(p => idSet.Contains(p.Id))
+            .ToListAsync(ct);
+    }
 }

@@ -40,22 +40,27 @@ public class OrderService : IOrderService
     {
         await _createValidator.ValidateAndThrowAsync(dto, ct);
 
-        var customer = await _customers.GetByIdAsync(dto.CustomerId, ct)
-            ?? throw new DomainNotFoundException("Cliente não encontrado.");
-
+        // Otimizacao: removida a pre-checagem de existencia do cliente. A FK
+        // orders.customer_id REFERENCES customers(id) garante a integridade no
+        // banco - se o cliente nao existir, o INSERT falha e o repository
+        // traduz em DomainNotFoundException. Economiza 1 round-trip cross-region.
         var items = await BuildItemsAsync(dto.Items, ct);
-        var order = new Order(customer.Id, dto.OrderDate, items);
+        var order = new Order(dto.CustomerId, dto.OrderDate, items);
 
         await _orders.AddAsync(order, ct);
 
-        var stored = await _orders.GetByIdAsync(order.Id, ct);
-        return MapToDto(stored!);
+        // Removido o re-fetch do pedido apos AddAsync: o frontend navega para a
+        // lista logo apos receber o 201, entao nao precisa de CustomerName na
+        // resposta. Economiza mais um round-trip - critico em latencia alta.
+        return MapToDto(order);
     }
 
     public async Task<OrderDto> UpdateAsync(Guid id, UpdateOrderDto dto, CancellationToken ct = default)
     {
         await _updateValidator.ValidateAndThrowAsync(dto, ct);
 
+        // Aqui o GetByIdAsync e necessario para o Order.Update() poder checar
+        // a regra das 24h sobre o CreatedAt original do pedido.
         var order = await _orders.GetByIdAsync(id, ct)
             ?? throw new DomainNotFoundException("Pedido não encontrado.");
 
@@ -64,8 +69,8 @@ public class OrderService : IOrderService
 
         await _orders.UpdateAsync(order, ct);
 
-        var refreshed = await _orders.GetByIdAsync(order.Id, ct);
-        return MapToDto(refreshed!);
+        // Sem re-fetch: usuario sera navegado para a lista, onde a busca refresca.
+        return MapToDto(order);
     }
 
     public async Task<OrderDto?> GetByIdAsync(Guid id, CancellationToken ct = default)
@@ -107,20 +112,26 @@ public class OrderService : IOrderService
     // O sold_price (preco efetivamente cobrado) continua vindo do cliente, porque pode ter desconto.
     private async Task<List<OrderItem>> BuildItemsAsync(List<CreateOrderItemDto> itemsDto, CancellationToken ct)
     {
-        // Carrega os produtos referenciados em um unico round-trip (em vez de N consultas)
+        // Coleta IDs unicos de produtos referenciados pelos itens.
         var productIds = itemsDto
             .Where(i => i.ProductId.HasValue && i.ProductId.Value != Guid.Empty)
             .Select(i => i.ProductId!.Value)
             .Distinct()
             .ToList();
 
-        var productsById = new Dictionary<Guid, Product>();
-        foreach (var pid in productIds)
-        {
-            var product = await _products.GetByIdAsync(pid, ct)
-                ?? throw new DomainNotFoundException($"Produto não encontrado (id: {pid}).");
-            productsById[pid] = product;
-        }
+        // Otimizacao: UM unico round-trip via GetByIdsAsync (WHERE id IN ...).
+        // Antes faziamos N round-trips (um por id), que em latencia cross-region
+        // (~180ms cada) podia somar segundos. Critico para o cenario do POST cair
+        // antes da resposta voltar.
+        var products = productIds.Count > 0
+            ? await _products.GetByIdsAsync(productIds, ct)
+            : Array.Empty<Product>();
+        var productsById = products.ToDictionary(p => p.Id);
+
+        // Se algum productId enviado nao existe no catalogo, falha amigavelmente.
+        var missingId = productIds.FirstOrDefault(id => !productsById.ContainsKey(id));
+        if (missingId != Guid.Empty)
+            throw new DomainNotFoundException($"Produto não encontrado (id: {missingId}).");
 
         var result = new List<OrderItem>(itemsDto.Count);
         foreach (var dto in itemsDto)

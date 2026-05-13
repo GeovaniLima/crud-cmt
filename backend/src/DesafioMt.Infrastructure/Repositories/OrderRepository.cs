@@ -1,7 +1,9 @@
 using DesafioMt.Application.Common.Abstractions;
+using DesafioMt.Domain.Common;
 using DesafioMt.Domain.Entities;
 using DesafioMt.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace DesafioMt.Infrastructure.Repositories;
 
@@ -73,8 +75,25 @@ public class OrderRepository : IOrderRepository
     public async Task AddAsync(Order order, CancellationToken ct = default)
     {
         await _context.Orders.AddAsync(order, ct);
-        await _context.SaveChangesAsync(ct);
+        try
+        {
+            await _context.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException ex) when (IsForeignKeyViolation(ex, "orders_customer_fk"))
+        {
+            // Cliente nao existe - retornamos 404 amigavel em vez de 500.
+            // Sem isso o usuario veria erro generico.
+            throw new DomainNotFoundException("Cliente não encontrado.");
+        }
     }
+
+    // Detecta violacao de chave estrangeira (SqlState 23503). Usado para traduzir
+    // erros do banco em mensagens amigaveis quando nao pre-validamos a existencia
+    // do recurso pai (otimizacao para evitar round-trip cross-region).
+    private static bool IsForeignKeyViolation(DbUpdateException ex, string constraintName) =>
+        ex.InnerException is PostgresException pgEx
+            && pgEx.SqlState == "23503"
+            && pgEx.ConstraintName == constraintName;
 
     // Atualizar Order com troca completa de itens nao funciona com o ChangeTracker padrao
     // do EF Core: ele compara colecoes por identidade, e como o dominio reconstroi novos
