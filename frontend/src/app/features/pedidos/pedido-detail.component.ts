@@ -125,8 +125,10 @@ export class PedidoDetailComponent implements OnInit {
         this.order.set(o);
         this.loading.set(false);
       },
-      error: () => {
+      error: (e: any) => {
         this.loading.set(false);
+        // status 0 = conexao caiu (cold start). Overlay global cuida.
+        if (e?.status === 0) return;
         this.messageService.add({ severity: 'error', summary: 'Erro', detail: 'Pedido não encontrado.' });
         this.router.navigate(['/pedidos']);
       }

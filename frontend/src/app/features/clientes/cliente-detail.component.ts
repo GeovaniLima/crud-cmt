@@ -178,8 +178,10 @@ export class ClienteDetailComponent implements OnInit {
         this.orders.set(r.orders.items);
         this.loading.set(false);
       },
-      error: () => {
+      error: (e: any) => {
         this.loading.set(false);
+        // status 0 = conexao caiu. Overlay global ja comunica - sem toast nem navegacao.
+        if (e?.status === 0) return;
         this.messageService.add({ severity: 'error', summary: 'Erro', detail: 'Cliente não encontrado.' });
         this.router.navigate(['/clientes']);
       }

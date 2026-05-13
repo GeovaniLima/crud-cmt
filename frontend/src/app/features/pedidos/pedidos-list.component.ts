@@ -218,6 +218,8 @@ export class PedidosListComponent implements OnInit {
         },
         error: e => {
           this.loading.set(false);
+          // status 0 = conexao caiu. Overlay global ja comunica - sem toast.
+          if (e?.status === 0) return;
           this.messageService.add({
             severity: 'error',
             summary: 'Erro',

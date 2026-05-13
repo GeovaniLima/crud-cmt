@@ -227,8 +227,10 @@ export class ClienteFormComponent implements OnInit {
           this.lastLookedUpCep = c.address.zipCode.replace(/\D/g, '');
           this.loading.set(false);
         },
-        error: () => {
+        error: (e: any) => {
           this.loading.set(false);
+          // status 0 = conexao caiu (cold start). Overlay global cuida.
+          if (e?.status === 0) return;
           this.messageService.add({ severity: 'error', summary: 'Erro', detail: 'Cliente não encontrado.' });
           this.router.navigate(['/clientes']);
         }
