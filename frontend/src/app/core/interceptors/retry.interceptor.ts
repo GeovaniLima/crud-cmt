@@ -19,6 +19,16 @@ export const retryInterceptor: HttpInterceptorFn = (req, next) => {
     retry({
       count: 3,
       delay: (error: HttpErrorResponse, retryCount) => {
+        // AbortError ocorre quando uma request e cancelada pelo proprio cliente
+        // (switchMap em busca debounce, navegacao de rota, etc). Nao tem nada
+        // a ver com o servidor estar fora - se retentassemos isto, criariamos
+        // mais aborts em cascata.
+        const isAbort = error.error?.name === 'AbortError'
+          || (typeof error.message === 'string' && error.message.toLowerCase().includes('abort'));
+        if (isAbort) {
+          return throwError(() => error);
+        }
+
         const isConnectionDown = error.status === 0
           || error.status === 502
           || error.status === 503
