@@ -1,21 +1,24 @@
-# Render Blueprint — auto-configura o serviço quando conectado ao GitHub.
+# Render Blueprint - configura o servico automaticamente quando conectado ao GitHub.
 # Docs: https://render.com/docs/blueprint-spec
+#
+# Importante: para runtime: docker, dockerfilePath e dockerContext sao relativos
+# a RAIZ DO REPO (nao usar rootDir aqui, que so vale para runtimes nativos).
 
 services:
   - type: web
     name: desafiomt-api
     runtime: docker
     plan: free
-    region: oregon          # Region do Render (não confundir com a do Supabase)
-    rootDir: backend
-    dockerfilePath: ./Dockerfile
+    region: oregon
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
     healthCheckPath: /health
     autoDeploy: true
     envVars:
       - key: ASPNETCORE_ENVIRONMENT
         value: Production
       - key: ConnectionStrings__DefaultConnection
-        sync: false          # Setado manualmente no dashboard (secret)
+        sync: false              # secret, configurada manualmente no dashboard
       - key: Cors__AllowedOrigins__0
         value: https://*.vercel.app
       - key: Cors__AllowedOrigins__1
