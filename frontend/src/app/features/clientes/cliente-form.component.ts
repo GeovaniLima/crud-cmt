@@ -345,6 +345,10 @@ export class ClienteFormComponent implements OnInit {
       },
       error: e => {
         this.saving.set(false);
+        // status 0 (conexao caiu) ja e tratado pelo retry.interceptor, que aciona
+        // o BackendStatusService - o overlay global reaparece e o usuario apenas
+        // espera. Nao mostramos toast aqui para nao poluir.
+        if (e?.status === 0) return;
         const detail = e?.error?.detail ?? 'Erro ao salvar cliente.';
         this.messageService.add({ severity: 'error', summary: 'Erro', detail });
       }

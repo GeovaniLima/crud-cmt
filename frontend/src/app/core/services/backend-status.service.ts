@@ -29,6 +29,18 @@ export class BackendStatusService {
     this.tryOnce(Date.now());
   }
 
+  /**
+   * Chamado pelo retry.interceptor quando uma request real falha com status 0
+   * (conexao caiu, provavelmente porque o backend hibernou no meio da sessao).
+   * Volta o status para 'starting' e dispara o probe - o overlay reaparece e
+   * libera quando o servidor voltar.
+   */
+  markDown(): void {
+    if (this.status() === 'starting') return; // ja estamos rechecando
+    this.status.set('starting');
+    this.tryOnce(Date.now());
+  }
+
   private tryOnce(startTime: number): void {
     const headers = new HttpHeaders({ 'X-No-Retry': 'true' });
     // Usamos /health/db (nao /health) para que o probe acorde o app E ja teste

@@ -1,58 +1,45 @@
 import { HttpErrorResponse, HttpInterceptorFn } from '@angular/common/http';
-import { retry, throwError, timer } from 'rxjs';
+import { inject } from '@angular/core';
+import { tap, throwError } from 'rxjs';
+import { BackendStatusService } from '../services/backend-status.service';
 
-// Retenta automaticamente erros de conexao com o backend.
+// Trata erros de conexao do backend de duas formas:
 //
-// Motivacao: o Render free tier hiberna o servico apos 15min de inatividade.
-// O primeiro acesso depois disso acorda o container (cold start), que demora
-// ~30-60s. Durante esse intervalo, requests caem com status 0 (ERR_CONNECTION_CLOSED)
-// ou 502/503/504. Sem retry, o usuario veria erro logo de cara mesmo abrindo
-// a aplicacao corretamente.
+//   1) Em request CANCELADA pelo cliente (AbortError): apenas repassa o erro
+//      sem alarme. Sao normais em buscas debounced e navegacao de rotas.
 //
-// Estrategia:
-//   - Maximo 4 tentativas (request original + 3 retries)
-//   - Backoff exponencial: 2s, 4s, 8s
-//   - So retry para erros de "servidor indisponivel"; nunca para 4xx (validacao,
-//     auth, conflito) ou outros erros do app, que sao deterministicos
+//   2) Em request com status 0 / 502 / 503 / 504 (servidor inalcancavel,
+//      tipico do cold start do Render free tier): nao retenta dentro do
+//      interceptor. Em vez disso, avisa o BackendStatusService.markDown(),
+//      que volta o status para 'starting' - o overlay de "Aguardando servidor"
+//      reaparece e a UI fica bloqueada ate o probe confirmar que voltou.
+//      Sem isto, cada falha geraria 3 retries em cascata e dezenas de erros
+//      no console.
+//
+//   3) Outras falhas (4xx, 5xx esperados): passam direto. O componente
+//      decide o que mostrar (toast com a mensagem do ProblemDetails do back).
 export const retryInterceptor: HttpInterceptorFn = (req, next) => {
-  // Bypass para callers que orquestram o proprio retry com feedback de UI
-  // (ex.: BackendStatusService durante o probe de cold start).
+  const backend = inject(BackendStatusService);
+
+  // Bypass total para callers que orquestram retry proprio (probe do backend).
   if (req.headers.has('X-No-Retry')) {
     return next(req);
   }
 
-  // Importante: so retentamos metodos idempotentes. Retentar POST/PUT/DELETE
-  // pode criar duplicatas ou disparar 409s falsos quando a primeira tentativa
-  // chegou no servidor mas a resposta perdeu na rede (cenario classico de
-  // cold start: cria o recurso, conexao cai antes do 201 chegar, retry recebe
-  // 409 mesmo o create tendo sido feito).
-  const idempotent = req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS';
-  if (!idempotent) {
-    return next(req);
-  }
-
   return next(req).pipe(
-    retry({
-      count: 3,
-      delay: (error: HttpErrorResponse, retryCount) => {
-        // AbortError ocorre quando uma request e cancelada pelo proprio cliente
-        // (switchMap em busca debounce, navegacao de rota, etc). Nao tem nada
-        // a ver com o servidor estar fora - se retentassemos isto, criariamos
-        // mais aborts em cascata.
+    tap({
+      error: (error: HttpErrorResponse) => {
         const isAbort = error.error?.name === 'AbortError'
           || (typeof error.message === 'string' && error.message.toLowerCase().includes('abort'));
-        if (isAbort) {
-          return throwError(() => error);
-        }
+        if (isAbort) return;
 
         const isConnectionDown = error.status === 0
           || error.status === 502
           || error.status === 503
           || error.status === 504;
         if (isConnectionDown) {
-          return timer(retryCount * 2000);
+          backend.markDown();
         }
-        return throwError(() => error);
       }
     })
   );
