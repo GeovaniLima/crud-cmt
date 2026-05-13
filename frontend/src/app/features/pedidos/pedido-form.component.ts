@@ -593,6 +593,9 @@ export class PedidoFormComponent implements OnInit {
 
   private onSaveError(err: any): void {
     this.saving.set(false);
+    // status 0 ja e tratado pelo retry.interceptor (acorda BackendStatusService).
+    // O overlay global reaparece e o usuario espera. Sem toast extra aqui.
+    if (err?.status === 0) return;
     const detail = err?.error?.detail ?? 'Erro ao salvar pedido.';
     this.messageService.add({ severity: 'error', summary: 'Erro', detail });
   }
