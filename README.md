@@ -342,7 +342,7 @@ GitHub → Supabase → Render (backend) → Vercel (frontend) → ajuste CORS s
 cd c:\Projetos\desafiomt
 git init -b main
 git add .
-git commit -m "Versão inicial do desafio Movtech"
+git commit -m "Versão inicial do projeto"
 git remote add origin https://github.com/SEU_USUARIO/SEU_REPO.git
 git push -u origin main
 ```
