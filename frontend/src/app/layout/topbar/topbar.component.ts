@@ -1,6 +1,7 @@
-﻿import { Component, inject } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { LayoutService } from '../../core/services/layout.service';
+import { BackendStatusService } from '../../core/services/backend-status.service';
 
 @Component({
   selector: 'app-topbar',
@@ -30,6 +31,19 @@ import { LayoutService } from '../../core/services/layout.service';
       <div class="flex-1"></div>
 
       <div class="flex items-center gap-3 md:gap-4 text-sm pr-3 md:pr-6">
+        <!-- Indicador do status do backend (cold start do Render) -->
+        @if (backend.status() === 'starting') {
+          <span class="flex items-center gap-2 px-2 py-1 rounded bg-yellow-500/15 text-yellow-300 text-xs">
+            <i class="pi pi-spin pi-spinner text-xs"></i>
+            <span class="hidden sm:inline">Aguardando servidor...</span>
+          </span>
+        }
+        @if (backend.status() === 'failed') {
+          <span class="flex items-center gap-2 px-2 py-1 rounded bg-red-500/20 text-red-300 text-xs">
+            <i class="pi pi-times-circle text-xs"></i>
+            <span class="hidden sm:inline">Servidor indisponível</span>
+          </span>
+        }
         <span class="px-2 py-1 rounded border border-gray-600 text-xs hidden sm:inline-flex items-center">PT-BR</span>
         <i class="pi pi-window-maximize text-gray-300 cursor-pointer hidden md:inline" title="Tela cheia"></i>
       </div>
@@ -38,4 +52,5 @@ import { LayoutService } from '../../core/services/layout.service';
 })
 export class TopbarComponent {
   readonly layout = inject(LayoutService);
+  readonly backend = inject(BackendStatusService);
 }
