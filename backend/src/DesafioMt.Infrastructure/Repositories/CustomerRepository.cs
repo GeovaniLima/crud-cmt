@@ -74,8 +74,7 @@ public class CustomerRepository : ICustomerRepository
     // Postgres devolve SqlState "23505" em violacoes de UNIQUE; o ConstraintName
     // identifica QUAL constraint (CPF ou e-mail). Trocamos pelo DomainConflictException
     // que o middleware converte em HTTP 409. Isso elimina os pre-checks por SELECT,
-    // economizando 2 round-trips de banco em cada criacao/atualizacao - critico em
-    // latencia cross-region (Render Oregon <-> Supabase sa-east-1).
+    // economizando 2 round-trips de banco em cada criacao/atualizacao.
     private static bool TryGetUniqueViolation(DbUpdateException ex, out string constraintName)
     {
         constraintName = string.Empty;

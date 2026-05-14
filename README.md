@@ -41,7 +41,7 @@ Diagrama em alto nível:
 
 ```
 Browser (Angular SPA)  ─HTTPS──►  Render (.NET API)  ─PG SSL──►  Supabase Postgres
-   (Vercel CDN)                     (Docker)                       (sa-east-1)
+   (Vercel CDN)                     (Docker)                       (us-west-2)
 ```
 
 ---
@@ -132,7 +132,7 @@ Você tem três opções:
 2. No SQL Editor do dashboard, rode o conteúdo de [`database/schema.sql`](database/schema.sql)
 3. Em **Project Settings → Database → Connection string**, copie a "Session pooler" (porta 5432). Vai ser algo como:
    ```
-   postgresql://postgres.SEU_PROJECT_REF:SUA_SENHA@aws-1-sa-east-1.pooler.supabase.com:5432/postgres
+   postgresql://postgres.SEU_PROJECT_REF:SUA_SENHA@aws-1-us-west-2.pooler.supabase.com:5432/postgres
    ```
 
 **Opção B — PostgreSQL local:**
@@ -162,7 +162,7 @@ Crie o arquivo `backend/src/DesafioMt.Api/appsettings.Development.json` (ignorad
     }
   },
   "ConnectionStrings": {
-    "DefaultConnection": "Host=aws-1-sa-east-1.pooler.supabase.com;Port=5432;Database=postgres;Username=postgres.SEU_PROJECT_REF;Password=SUA_SENHA;SslMode=Require;Trust Server Certificate=true"
+    "DefaultConnection": "Host=aws-1-us-west-2.pooler.supabase.com;Port=5432;Database=postgres;Username=postgres.SEU_PROJECT_REF;Password=SUA_SENHA;SslMode=Require;Trust Server Certificate=true"
   }
 }
 ```
@@ -349,11 +349,11 @@ git push -u origin main
 
 ### Passo 2 — Supabase (se ainda não fez)
 
-1. Crie projeto em https://supabase.com (região `sa-east-1` — São Paulo) e defina uma senha forte (anote)
+1. Crie projeto em https://supabase.com (região `us-west-2` — Oregon, mesma do Render para minimizar latencia) e defina uma senha forte (anote)
 2. No SQL Editor, cole e execute o conteúdo de [`database/schema.sql`](database/schema.sql)
 3. Em **Project Settings → Database → Connection string**, copie a **Session pooler** (porta 5432):
    ```
-   postgresql://postgres.PROJECT_REF:SUA_SENHA@aws-1-sa-east-1.pooler.supabase.com:5432/postgres
+   postgresql://postgres.PROJECT_REF:SUA_SENHA@aws-1-us-west-2.pooler.supabase.com:5432/postgres
    ```
 
 ### Passo 3 — Render (backend)
@@ -363,7 +363,7 @@ git push -u origin main
 3. Confirme a criação. O Render começa o primeiro deploy.
 4. Vá no serviço criado em **Environment** e adicione a variável secreta:
    - **Key**: `ConnectionStrings__DefaultConnection`
-   - **Value**: `Host=aws-1-sa-east-1.pooler.supabase.com;Port=5432;Database=postgres;Username=postgres.PROJECT_REF;Password=SUA_SENHA;SslMode=Require;Trust Server Certificate=true`
+   - **Value**: `Host=aws-1-us-west-2.pooler.supabase.com;Port=5432;Database=postgres;Username=postgres.PROJECT_REF;Password=SUA_SENHA;SslMode=Require;Trust Server Certificate=true`
 
    Use o formato Npgsql (não o URI do passo 2 — converta separando por `;`).
 
@@ -425,7 +425,7 @@ Pronto, aplicação publicada.
 
 | Sintoma | Causa | Solução |
 |---|---|---|
-| `health/db` retorna 500 "Tenant or user not found" | URL do pooler errada | Confira a região (`aws-1-sa-east-1` vs `aws-0`) — pegue do dashboard do Supabase |
+| `health/db` retorna 500 "Tenant or user not found" | URL do pooler errada | Confira a região (`aws-1-us-west-2` vs `aws-0`) — pegue do dashboard do Supabase |
 | Backend dá timeout no primeiro acesso | Render free tier hiberna após 15min sem requisições | Primeiro request leva ~30s. Normal. |
 | CORS bloqueado no frontend | Vercel usou domínio fora de `*.vercel.app` | Adicione o domínio em `Cors__AllowedOrigins__0` no Render |
 | Frontend mostra erro de rede após deploy | URL no `environment.ts` errada | Confira que aponta para o URL exato do Render (sem `/api` no final) |
