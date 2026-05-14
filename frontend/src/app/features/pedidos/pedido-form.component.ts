@@ -9,7 +9,7 @@ import { DropdownModule } from 'primeng/dropdown';
 import { InputNumberModule } from 'primeng/inputnumber';
 import { DialogModule } from 'primeng/dialog';
 import { MessageService } from 'primeng/api';
-import { forkJoin } from 'rxjs';
+import { firstValueFrom, forkJoin } from 'rxjs';
 import { CustomerService } from '../../core/services/customer.service';
 import { OrderService } from '../../core/services/order.service';
 import { ProductService } from '../../core/services/product.service';
@@ -551,20 +551,6 @@ export class PedidoFormComponent implements OnInit {
 
     this.saving.set(true);
 
-    // Pre-flight: aguarda o backend estar 'ready' antes de mandar a mutacao.
-    // Evita race condition de criar duplicata quando o servidor estava
-    // hibernando e a conexao caia entre o processamento e a resposta.
-    const ready = await this.backend.waitForReady();
-    if (!ready) {
-      this.saving.set(false);
-      this.messageService.add({
-        severity: 'error',
-        summary: 'Servidor indisponível',
-        detail: 'Não foi possível conectar ao servidor. Tente novamente em instantes.'
-      });
-      return;
-    }
-
     const v = this.form.getRawValue();
     // IDs "custom-*" sao sinteticos (legacy edit) - viram null no payload.
     const itemsPayload = v.items.map((i: any) => ({
@@ -578,22 +564,39 @@ export class PedidoFormComponent implements OnInit {
     // Trata o valor do datetime-local como horario de Brasilia, independente do TZ do browser.
     const orderDateIso = new Date(`${v.orderDate}:00-03:00`).toISOString();
 
-    if (this.isEditMode) {
-      const payload: UpdateOrderPayload = { orderDate: orderDateIso, items: itemsPayload };
-      this.orderService.update(this.id!, payload).subscribe({
-        next: () => this.onSaveSuccess('Atualizado'),
-        error: e => this.onSaveError(e)
-      });
-    } else {
-      const payload: CreateOrderPayload = {
-        customerId: v.customerId,
-        orderDate: orderDateIso,
-        items: itemsPayload
-      };
-      this.orderService.create(payload).subscribe({
-        next: () => this.onSaveSuccess('Criado'),
-        error: e => this.onSaveError(e)
-      });
+    // Auto-retry loop: em cold start do Render free tier a primeira request
+    // pode dar status 0 (CONNECTION_CLOSED). O retry.interceptor chama
+    // markDown() que dispara o probe; aqui o proximo waitForReady aguarda o
+    // probe responder antes de tentar de novo. Sem este loop, o usuario teria
+    // que clicar Salvar duas vezes (primeiro para acordar, segundo para salvar).
+    const MAX_ATTEMPTS = 3;
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      const ready = await this.backend.waitForReady();
+      if (!ready) {
+        this.saving.set(false);
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Servidor indisponível',
+          detail: 'Não foi possível conectar ao servidor. Tente novamente em instantes.'
+        });
+        return;
+      }
+
+      try {
+        const obs = this.isEditMode
+          ? this.orderService.update(this.id!, { orderDate: orderDateIso, items: itemsPayload } as UpdateOrderPayload)
+          : this.orderService.create({ customerId: v.customerId, orderDate: orderDateIso, items: itemsPayload } as CreateOrderPayload);
+        await firstValueFrom(obs);
+        this.onSaveSuccess(this.isEditMode ? 'Atualizado' : 'Criado');
+        return;
+      } catch (err: any) {
+        // status 0 = cold start em curso. Continua o loop: o markDown ja foi
+        // chamado pelo interceptor e o waitForReady do proximo iteration espera
+        // o probe confirmar que voltou.
+        if (err?.status === 0 && attempt < MAX_ATTEMPTS) continue;
+        this.onSaveError(err);
+        return;
+      }
     }
   }
 
