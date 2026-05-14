@@ -22,11 +22,40 @@ export class BackendStatusService {
   private static readonly MAX_WAIT_MS = 90_000;     // desistencia: 1m30
   private static readonly RETRY_INTERVAL_MS = 3_000; // intervalo entre tentativas
 
+  constructor() {
+    // Ao voltar para a aba (depois de tempo em background), dispara uma
+    // verificacao silenciosa: se o backend tiver hibernado nesse intervalo,
+    // ja comecamos a acordar antes do usuario clicar em algo. Se estiver vivo,
+    // ninguem percebe. Sem isto, o overlay so aparece quando uma request real
+    // (save, lista) falha - ai o usuario espera os 30-60s parado.
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible' && this.status() === 'ready') {
+          this.silentCheck();
+        }
+      });
+    }
+  }
+
   /** Inicia (ou reinicia, em caso de falha) o probe. Idempotente quando ja pronto. */
   probe(): void {
     if (this.status() === 'ready') return;
     this.status.set('starting');
     this.tryOnce(Date.now());
+  }
+
+  /**
+   * Checagem silenciosa para detectar hibernacao enquanto a aba ficou em
+   * background. Se o backend responder, mantemos status='ready' (zero impacto
+   * de UX). Se falhar, caimos no fluxo padrao via markDown - overlay aparece
+   * e o probe normal acorda o servidor.
+   */
+  private silentCheck(): void {
+    const headers = new HttpHeaders({ 'X-No-Retry': 'true' });
+    this.http.get(`${environment.apiUrl}/health`, { headers })
+      .subscribe({
+        error: () => this.markDown()
+      });
   }
 
   /**

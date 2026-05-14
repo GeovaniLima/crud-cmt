@@ -6,6 +6,7 @@ import { InputTextModule } from 'primeng/inputtext';
 import { InputMaskModule } from 'primeng/inputmask';
 import { ButtonModule } from 'primeng/button';
 import { MessageService } from 'primeng/api';
+import { firstValueFrom } from 'rxjs';
 import { CustomerService } from '../../core/services/customer.service';
 import { CepService } from '../../core/services/cep.service';
 import { BackendStatusService } from '../../core/services/backend-status.service';
@@ -318,21 +319,6 @@ export class ClienteFormComponent implements OnInit {
 
     this.saving.set(true);
 
-    // Pre-flight: aguarda o backend confirmar que esta pronto antes de enviar
-    // o POST/PUT. Evita duplicar registros quando o servidor estava hibernando
-    // e a request real cairia no meio do caminho. Se ja esta 'ready', resolve
-    // instantaneo (sem custo perceptivel).
-    const ready = await this.backend.waitForReady();
-    if (!ready) {
-      this.saving.set(false);
-      this.messageService.add({
-        severity: 'error',
-        summary: 'Servidor indisponível',
-        detail: 'Não foi possível conectar ao servidor. Tente novamente em instantes.'
-      });
-      return;
-    }
-
     const v = this.form.getRawValue();
     const payload: CreateCustomerPayload = {
       name: v.name,
@@ -350,28 +336,47 @@ export class ClienteFormComponent implements OnInit {
       }
     };
 
-    const obs = this.isEditMode
-      ? this.service.update(this.id!, payload)
-      : this.service.create(payload);
+    // Auto-retry loop: em cold start do Render free tier a primeira request
+    // pode dar status 0 (CONNECTION_CLOSED). O retry.interceptor chama
+    // markDown() que dispara o probe; aqui o proximo waitForReady aguarda o
+    // probe responder antes de tentar de novo. Sem este loop, o usuario teria
+    // que clicar Salvar duas vezes.
+    const MAX_ATTEMPTS = 3;
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      const ready = await this.backend.waitForReady();
+      if (!ready) {
+        this.saving.set(false);
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Servidor indisponível',
+          detail: 'Não foi possível conectar ao servidor. Tente novamente em instantes.'
+        });
+        return;
+      }
 
-    obs.subscribe({
-      next: () => {
+      try {
+        const obs = this.isEditMode
+          ? this.service.update(this.id!, payload)
+          : this.service.create(payload);
+        await firstValueFrom(obs);
         this.messageService.add({
           severity: 'success',
           summary: this.isEditMode ? 'Atualizado' : 'Criado',
           detail: 'Cliente salvo com sucesso.'
         });
         this.router.navigate(['/clientes']);
-      },
-      error: e => {
+        return;
+      } catch (e: any) {
+        // status 0 = cold start em curso. Continua o loop: o markDown ja foi
+        // chamado pelo interceptor e o waitForReady do proximo iteration espera
+        // o probe confirmar que voltou.
+        if (e?.status === 0 && attempt < MAX_ATTEMPTS) continue;
         this.saving.set(false);
-        // status 0 = conexao caiu. O overlay global (BackendStatusService) ja
-        // aparece via retry.interceptor.markDown(). Nao mostramos toast para
-        // nao confundir o usuario - basta apertar Salvar de novo quando voltar.
         if (e?.status === 0) return;
         const detail = e?.error?.detail ?? 'Erro ao salvar cliente.';
         this.messageService.add({ severity: 'error', summary: 'Erro', detail });
+        return;
       }
-    });
+    }
   }
 }
