@@ -108,23 +108,35 @@ public class OrderRepository : IOrderRepository
     // cada RT custa ~180ms SP<->Oregon.
     public async Task UpdateAsync(Order order, CancellationToken ct = default)
     {
-        var orphans = _context.ChangeTracker.Entries<OrderItem>()
-            .Where(e => e.Entity.OrderId == order.Id && e.State == EntityState.Unchanged)
-            .Select(e => e.Entity)
-            .ToList();
-
-        foreach (var orphan in orphans)
-            _context.OrderItems.Remove(orphan);
-
-        foreach (var item in order.Items)
+        // AutoDetectChanges desligado: o relationship fix-up do EF (disparado por
+        // Entry()/SaveChanges) auto-rastreia os novos OrderItems via order._items.
+        // Como o Id deles nao e default (Guid.NewGuid()), EF supoe que sao entidades
+        // EXISTENTES e marca Unchanged - depois SaveChanges gera UPDATE WHERE id=novo
+        // que nao acha nada no banco e estoura DbUpdateConcurrencyException. Setando
+        // estados a mao com fix-up desligado, controle 100% explicito: Deleted nos
+        // antigos, Added nos novos, Modified no order. SaveChanges agrupa tudo em
+        // um batch unico (1 round-trip cross-continent).
+        var prev = _context.ChangeTracker.AutoDetectChangesEnabled;
+        _context.ChangeTracker.AutoDetectChangesEnabled = false;
+        try
         {
-            // Os itens novos (Guids novos do BuildItemsForUpdate) nao estao tracked.
-            // Se DetectChanges ja marcou como Added via navegacao, Add e idempotente.
-            if (_context.Entry(item).State == EntityState.Detached)
-                _context.OrderItems.Add(item);
-        }
+            var oldItems = _context.ChangeTracker.Entries<OrderItem>()
+                .Where(e => e.Entity.OrderId == order.Id)
+                .ToList();
+            foreach (var entry in oldItems)
+                entry.State = EntityState.Deleted;
 
-        await _context.SaveChangesAsync(ct);
+            _context.Entry(order).State = EntityState.Modified;
+
+            foreach (var item in order.Items)
+                _context.Entry(item).State = EntityState.Added;
+
+            await _context.SaveChangesAsync(ct);
+        }
+        finally
+        {
+            _context.ChangeTracker.AutoDetectChangesEnabled = prev;
+        }
     }
 
     public Task<decimal> GetTotalSpentByCustomerAsync(Guid customerId, CancellationToken ct = default) =>
